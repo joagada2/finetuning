@@ -29,7 +29,7 @@ echo "-------------------------------"
 
 # ——— 4) Step 1: Data & Model Download —————————————
 echo ">>> Step 1: sft_llama_ds_own_data.py"
-srun python3 data_and_model_download.py \
+srun python3 sft_llama_ds_own_data.py \
      && echo "Data prep ✅ at $(date)" \
      || { echo "❌ Data prep failed"; exit 1; }
 
