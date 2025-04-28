@@ -1,46 +1,56 @@
 #!/bin/bash
 #SBATCH -A trn040
-#SBATCH -J full_finetune_pipeline
-#SBATCH -o logs/full_finetune_pipeline-%j.out
-#SBATCH -e logs/full_finetune_pipeline-%j.err
+#SBATCH -J finetune_llama3_ds
+#SBATCH -o logs/finetune_llama3_ds-%j.o
+#SBATCH -e logs/finetune_llama3_ds-%j.e
+#SBATCH -t 01:00:00
 #SBATCH -p batch
-#SBATCH -N 1
-#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:8
-#SBATCH -t 12:00:00
+#SBATCH -N 1
 
-# ——— 1) Setup environment —————————————————————
+# 1) Reset modules & load conda
 module reset
 module load miniforge3/23.11.0
+
+# 2) Enable `conda activate`
 source /sw/odo/miniforge3/23.11.0/etc/profile.d/conda.sh
+
+# 3) Activate your finetuning env (with torch, deepspeed, etc.)
 conda activate /gpfs/wolf2/olcf/trn040/world-shared/sajal/env-ft-6.1.3-ro
 
-# ——— 2) Move to project directory —————————————————
-cd /gpfs/wolf2/olcf/trn040/scratch/josephagada/project/finetuning
+# 4) Load ROCm if your PyTorch build needs it
+module load rocm/6.1.3
+export ROCM_HOME=/opt/rocm-6.1.3
 
-# ——— 3) Sanity check ————————————————————————
-echo "HOST:        $(hostname)"
-echo "START TIME:  $(date)"
-echo "PYTHON:      $(which python)"
-echo "GPUS:        $SLURM_GPUS_ON_NODE"
-echo "CPUS:        $SLURM_CPUS_ON_NODE"
-echo "-------------------------------"
+# 5) HF offline mode (if pre-cached)
+export HF_HUB_OFFLINE=1
 
-# ——— 4) Step 1: Data & Model Download —————————————
-echo ">>> Step 1: sft_llama_ds_own_data.py"
-srun python3 sft_llama_ds_own_data.py \
-     && echo "Data prep ✅ at $(date)" \
-     || { echo "❌ Data prep failed"; exit 1; }
+# 6) (Optional) proxies / token
+export all_proxy=socks://proxy.ccs.ornl.gov:3128/
+export http_proxy=http://proxy.ccs.ornl.gov:3128/
+export https_proxy=http://proxy.ccs.ornl.gov:3128/
+export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
+export HF_TOKEN="YOUR_HF_TOKEN"
 
-# ——— 5) Step 2: Fine-tuning —————————————————————
-echo ">>> Step 2: fine-tuning with sft_llama_ds_own_data.py"
-srun deepspeed --num_gpus=8 \
-     --master_addr=$MASTER_ADDR \
-     --master_port=29500 \
-     sft_llama.py \
-     --deepspeed ds_config.json \
-     && echo "Fine-tuning ✅ at $(date)" \
-     || { echo "❌ Fine-tuning failed"; exit 2; }
+# 7) Sanity check
+echo "===== ENVIRONMENT CHECK ====="
+echo "Python: $(which python)"
+python - <<'PYCODE'
+import torch, deepspeed
+print("Torch:", torch.__version__)
+print("DeepSpeed:", deepspeed.__version__)
+PYCODE
+echo "============================="
 
-echo "==== ALL DONE at $(date) ===="
+# 8) Data preparation
+echo ">>> Step 1/2: data prep via sft_llama_ds_own_data.py"
+python sft_llama_ds_own_data.py \
+  && echo "Data prep succeeded" \
+  || { echo "🔴 Data prep failed" ; exit 1; }
+
+# 9) Fine-tuning with DeepSpeed
+echo ">>> Step 2/2: training via sft_llama_ds.py"
+deepspeed ./sft_llama_ds.py \
+  && echo "✅ Training complete" \
+  || { echo "🔴 Training failed" ; exit 2; }
