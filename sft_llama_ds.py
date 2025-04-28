@@ -11,9 +11,9 @@ from trl import SFTTrainer, SFTConfig
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["LOCAL_RANK"]
 # Model and tokenizer names
-base_model_name = "NousResearch/Llama-2-7b-chat"
-base_model_name = "meta-llama/Meta-Llama-3-8B"
-new_model_name = "llama-3-8b-enhanced" #You can give your own name for fine tuned model
+base_model_name = "mistralai/Mistral-7B-Instruct-v0.1"
+base_model_name = "mistralai/Mistral-7B-Instruct-v0.1"
+new_model_name = "mistralai/Mistral-7B-Instruct-v0.1" #You can give your own name for fine tuned model
 
 # Tokenizer
 llama_tokenizer = AutoTokenizer.from_pretrained(base_model_name, 
