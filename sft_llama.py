@@ -12,8 +12,8 @@ from trl import SFTTrainer, SFTConfig
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 # Model and tokenizer names
-base_model_name = "NousResearch/Llama-2-7b-chat"
-base_model_name = "meta-llama/Meta-Llama-3-8B"
+base_model_name = "stabilityai/stablelm-base-alpha-7b"
+base_model_name = "stabilityai/stablelm-base-alpha-7b"
 new_model_name = "stabilityai/stablelm-base-alpha-7b" #You can give your own name for fine tuned model
 
 # Tokenizer
