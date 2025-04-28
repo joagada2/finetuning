@@ -1,56 +1,60 @@
 #!/bin/bash
-#SBATCH -A trn040
-#SBATCH -J finetune_llama3_ds
+
+#SBATCH -A TRN040
+#SBATCH -J finetune_llama3_ds 
 #SBATCH -o logs/finetune_llama3_ds-%j.o
 #SBATCH -e logs/finetune_llama3_ds-%j.e
 #SBATCH -t 01:00:00
 #SBATCH -p batch
-#SBATCH --cpus-per-task=4
+##SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
+#SBATCH --cpus-per-task=4           # number of cores per tasks
 #SBATCH --gres=gpu:8
-#SBATCH -N 1
+#SBATCH -N 1 
 
-# 1) Reset modules & load conda
+
+source /gpfs/wolf2/olcf/trn040/world-shared/sajal/miniconda3/bin/activate
 module reset
+module load rocm/6.1.3
+module load gcc/12.2.0
 module load miniforge3/23.11.0
 
-# 2) Enable `conda activate`
-source /sw/odo/miniforge3/23.11.0/etc/profile.d/conda.sh
-
-# 3) Activate your finetuning env (with torch, deepspeed, etc.)
-conda activate /gpfs/wolf2/olcf/trn040/world-shared/sajal/env-ft-6.1.3-ro
-
-# 4) Load ROCm if your PyTorch build needs it
-module load rocm/6.1.3
 export ROCM_HOME=/opt/rocm-6.1.3
 
-# 5) HF offline mode (if pre-cached)
+conda activate /gpfs/wolf2/olcf/trn040/world-shared/sajal/env-ft-6.1.3-ro
+module unload miniforge3/23.11.0
 export HF_HUB_OFFLINE=1
 
-# 6) (Optional) proxies / token
+export GPUS_PER_NODE=8
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=9901
+
 export all_proxy=socks://proxy.ccs.ornl.gov:3128/
+export ftp_proxy=ftp://proxy.ccs.ornl.gov:3128/
 export http_proxy=http://proxy.ccs.ornl.gov:3128/
 export https_proxy=http://proxy.ccs.ornl.gov:3128/
 export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
+
 export HF_TOKEN="YOUR_HF_TOKEN"
 
-# 7) Sanity check
-echo "===== ENVIRONMENT CHECK ====="
-echo "Python: $(which python)"
-python - <<'PYCODE'
-import torch, deepspeed
-print("Torch:", torch.__version__)
-print("DeepSpeed:", deepspeed.__version__)
-PYCODE
-echo "============================="
+scontrol show hostnames $SLURM_NODELIST > job.node.list.$SLURM_JOB_ID
+input="./job.node.list".$SLURM_JOB_ID
+host_file=host_file.$SLURM_JOB_ID
+readarray -t arr <"$input"
 
-# 8) Data preparation
-echo ">>> Step 1/2: data prep via sft_llama_ds_own_data.py"
-python sft_llama_ds_own_data.py \
-  && echo "Data prep succeeded" \
-  || { echo "🔴 Data prep failed" ; exit 1; }
+for item in "${arr[@]}"; do
+  echo "$item" slots=8 >> $host_file 
+done
 
-# 9) Fine-tuning with DeepSpeed
-echo ">>> Step 2/2: training via sft_llama_ds.py"
-deepspeed ./sft_llama_ds.py \
-  && echo "✅ Training complete" \
-  || { echo "🔴 Training failed" ; exit 2; }
+first=${arr[0]}
+echo "first=" $first
+ips=`ssh $first hostname -I`
+read -ra arr <<< ${ips}
+export MASTER_ADDR=${arr[0]}
+echo "MASTER_ADDR=" $MASTER_ADDR
+
+#torchrun --nproc_per_node=8 --nnode=2 --node_rank=0 --master_addr=$MASTER_ADDR \
+#--master_port=29500 sft_llama_deepspeed.py
+
+
+#deepspeed --num_gpus 8 --num_nodes 1 --hostfile $host_file --master_addr=$MASTER_ADDR --master_port=29500 \
+deepspeed ./sft_llama_ds.py
