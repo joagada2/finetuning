@@ -28,7 +28,7 @@ echo "CPUS:        $SLURM_CPUS_ON_NODE"
 echo "-------------------------------"
 
 # ——— 4) Step 1: Data & Model Download —————————————
-echo ">>> Step 1: data_and_model_download.py"
+echo ">>> Step 1: sft_llama_ds_own_data.py"
 srun python3 data_and_model_download.py \
      && echo "Data prep ✅ at $(date)" \
      || { echo "❌ Data prep failed"; exit 1; }
@@ -38,7 +38,7 @@ echo ">>> Step 2: fine-tuning with sft_llama_ds_own_data.py"
 srun deepspeed --num_gpus=8 \
      --master_addr=$MASTER_ADDR \
      --master_port=29500 \
-     sft_llama_ds_own_data.py \
+     sft_llama.py \
      --deepspeed ds_config.json \
      && echo "Fine-tuning ✅ at $(date)" \
      || { echo "❌ Fine-tuning failed"; exit 2; }
