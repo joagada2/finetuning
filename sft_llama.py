@@ -12,9 +12,9 @@ from trl import SFTTrainer, SFTConfig
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 # Model and tokenizer names
-base_model_name = "stabilityai/stablelm-base-alpha-7b"
-base_model_name = "stabilityai/stablelm-base-alpha-7b"
-new_model_name = "stabilityai/stablelm-base-alpha-7b" #You can give your own name for fine tuned model
+base_model_name = "mistralai/Mistral-7B-Instruct-v0.1"
+base_model_name = "mistralai/Mistral-7B-Instruct-v0.1"
+new_model_name =  "mistralai/Mistral-7B-Instruct-v0.1" #You can give your own name for fine tuned model
 
 # Tokenizer
 llama_tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
