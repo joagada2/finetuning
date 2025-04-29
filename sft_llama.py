@@ -41,7 +41,7 @@ print(training_data[11])
 # Training Params
 train_params = SFTConfig(
     output_dir="./results_modified",
-    num_train_epochs=1,
+    num_train_epochs=10,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=1,
     #optim="paged_adamw_32bit",
@@ -83,4 +83,4 @@ fine_tuning = SFTTrainer(
 
 # Training
 fine_tuning.train()
-model.save_pretrained("finetuned_llama")
+model.save_pretrained("stabilityai/stablelm-base-alpha-7b-finetune_by_agada")
